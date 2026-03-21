@@ -61,9 +61,10 @@ Promptagotchi is intimately tied to **Google's Gemini and Gemma APIs**. It showc
    ```bash
    pip install -r requirements.txt
    ```
-3. Create a `.env` file in the root directory and add your key:
-   ```
+3. Create a `.env` file in the root directory and add your key and preferred model:
+   ```env
    GEMINI_API_KEY=AIzaSyYourKeyHere...
+   GEMINI_MODEL=gemma-3-4b-it
    ```
 4. Start the server:
    ```bash
