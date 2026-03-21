@@ -8,7 +8,6 @@ import os
 import copy
 import base64
 from dotenv import load_dotenv
-from google.cloud import texttospeech
 
 app = Flask(__name__, static_folder='static')
 
@@ -89,30 +88,27 @@ def proxy_gemini():
 @app.route('/api/tts', methods=['POST'])
 def proxy_tts():
     """
-    Generate dynamic Text-To-Speech audio via the official Google Cloud TTS API.
-    Provides unique voices based on the chosen pet.
+    Generate dynamic Text-To-Speech audio via gTTS (Google Translate API).
+    Bypasses strict IAM role requirements natively on Google Cloud Run.
     """
     try:
+        from gtts import gTTS
+        import io
+        
         data = request.json or {}
         text = data.get("text", "").strip()
-        voice_id = data.get("voice", "en-US-Wavenet-D")
+        tld = data.get("tld", "com") # Default American English
         
         if not text:
             return jsonify({"error": "No text provided"}), 400
             
-        synthesis_input = texttospeech.SynthesisInput(text=text)
-        voice = texttospeech.VoiceSelectionParams(language_code="en-US", name=voice_id)
-        audio_config = texttospeech.AudioConfig(audio_encoding=texttospeech.AudioEncoding.MP3)
+        tts = gTTS(text=text, lang="en", tld=tld)
+        fp = io.BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
         
-        try:
-            client = texttospeech.TextToSpeechClient()
-            response = client.synthesize_speech(input=synthesis_input, voice=voice, audio_config=audio_config)
-            audio_b64 = base64.b64encode(response.audio_content).decode('utf-8')
-            return jsonify({"audioBase64": audio_b64})
-        except Exception as auth_e:
-            # Fails gracefully locally if the user hasn't run `gcloud auth login`
-            print(f"[TTS WARNING] Skipping audio generation (GCP Compute Credentials missing): {auth_e}")
-            return jsonify({"audioBase64": None, "warning": "Credentials missing locally. Will authenticate natively on Cloud Run."})
+        audio_b64 = base64.b64encode(fp.read()).decode('utf-8')
+        return jsonify({"audioBase64": audio_b64})
             
     except Exception as e:
         print(f"[TTS CRITICAL] {e}")

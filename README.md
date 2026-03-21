@@ -52,7 +52,8 @@ Additionally, frontend parsing logic was rigorously tested against edge cases. F
 The design uses high-contrast colors (vibrant purples, greens, and blues) and large, legible typography (`Nunito` and `Inter`). Hover states and click targets on the "Quick Action" buttons are large and clearly defined for mobile or touchscreen use.
 
 ### 🌐 Google Services
-Promptagotchi is intimately tied to **Google's Gemini and Gemma APIs**. It showcases how you can use Google's multimodal generative AI not just as a text generator, but as a real-time logical game engine that processes structured JSON state mutations.
+1. **Google Gemini & Gemma**: Promptagotchi showcases how to use multimodal generative AI not just as a text generator, but as a real-time logical game engine that directly processes and returns structured JSON state mutations.
+2. **Google Text-to-Speech (gTTS)**: We dynamically stream Google's premium Translate Text-to-Speech engine via our Flask proxy to synthesize real-time customized voice lines for the pets. Byte uses an energetic American voice, Luna sounds mysteriously British, and Blobby boasts a bouncy Australian accent, all rendered back to the browser seamlessly in base64!
 
 ---
 

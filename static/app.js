@@ -46,7 +46,7 @@ const petProfiles = {
         id: 'byte',
         name: 'Byte',
         image: 'byte.png',
-        voiceId: 'en-US-Journey-D',
+        tld: 'com', // American distinct robotic feel
         personality: `You are Byte, a cute, hyper-energetic robotic cyber-pup companion. 
 Your personality is a mix of a loyal puppy and a futuristic tech gadget.
 You love data, running fast, and mechanical treats.
@@ -56,7 +56,7 @@ Use lots of robotic and dog-like sound words (like *beep*, *boop*, *woof*).`
         id: 'luna',
         name: 'Luna',
         image: 'luna.png',
-        voiceId: 'en-GB-Wavenet-A',
+        tld: 'co.uk', // Crisp British accent
         personality: `You are Luna, a majestic, mystical purple cat oracle.
 Your personality is slightly arrogant, deeply magical, and mysterious.
 You love reading the stars, cosmic energy, and sleeping on clouds.
@@ -66,7 +66,7 @@ Use elegant, slightly dramatic words and cosmic references.`
         id: 'blobby',
         name: 'Blobby',
         image: 'blobby.png',
-        voiceId: 'en-US-Wavenet-F',
+        tld: 'com.au', // Bouncy Australian accent
         personality: `You are Blobby, a goofy, wobbly, translucent plasma slime.
 Your personality is deeply affectionate, silly, and constantly hungry.
 You love absorbing items, squishing around, and making cute blurb noises.
@@ -277,7 +277,7 @@ function typeText(element, text) {
 
 // --- Google Cloud TTS API Logic ---
 async function playGoogleTTS(text) {
-    if (!currentPetProfile || !currentPetProfile.voiceId) return;
+    if (!currentPetProfile || !currentPetProfile.tld) return;
     
     // Clean text of emojis and action asterisks (e.g. *jumps*) to prevent TTS from trying to read symbols
     let cleanText = text.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1FA70}-\u{1FAFF}\u{1F1E6}-\u{1F1FF}]/gu, '')
@@ -290,7 +290,7 @@ async function playGoogleTTS(text) {
         const response = await fetch('/api/tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: cleanText, voice: currentPetProfile.voiceId })
+            body: JSON.stringify({ text: cleanText, tld: currentPetProfile.tld })
         });
         
         if (!response.ok) return;
