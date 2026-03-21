@@ -46,6 +46,7 @@ const petProfiles = {
         id: 'byte',
         name: 'Byte',
         image: 'byte.png',
+        voiceId: 'en-US-Journey-D',
         personality: `You are Byte, a cute, hyper-energetic robotic cyber-pup companion. 
 Your personality is a mix of a loyal puppy and a futuristic tech gadget.
 You love data, running fast, and mechanical treats.
@@ -55,6 +56,7 @@ Use lots of robotic and dog-like sound words (like *beep*, *boop*, *woof*).`
         id: 'luna',
         name: 'Luna',
         image: 'luna.png',
+        voiceId: 'en-GB-Wavenet-A',
         personality: `You are Luna, a majestic, mystical purple cat oracle.
 Your personality is slightly arrogant, deeply magical, and mysterious.
 You love reading the stars, cosmic energy, and sleeping on clouds.
@@ -64,6 +66,7 @@ Use elegant, slightly dramatic words and cosmic references.`
         id: 'blobby',
         name: 'Blobby',
         image: 'blobby.png',
+        voiceId: 'en-US-Wavenet-F',
         personality: `You are Blobby, a goofy, wobbly, translucent plasma slime.
 Your personality is deeply affectionate, silly, and constantly hungry.
 You love absorbing items, squishing around, and making cute blurb noises.
@@ -71,11 +74,12 @@ Use words that sound soft, bubbly, and enthusiastic.`
     }
 };
 
-// --- Audio Effects (Placeholders) ---
-const playSound = (type) => {};
-
 // --- Core Functions ---
 
+/**
+ * Initializes the game view for a specific pet companion.
+ * @param {string} petId - The identifier for the chosen pet (byte, luna, blobby).
+ */
 function selectPet(petId) {
     currentPetProfile = petProfiles[petId];
     
@@ -113,6 +117,9 @@ function selectPet(petId) {
     updateUI();
 }
 
+/**
+ * Saves the current state and returns to the main pet selection menu.
+ */
 function switchPet() {
     saveGameData();
     document.getElementById('gameView').style.display = 'none';
@@ -120,12 +127,19 @@ function switchPet() {
     currentPetProfile = null;
 }
 
+/**
+ * Toggles the visibility of the Help/Instructions modal overlay.
+ */
 function toggleHelp() {
     const modal = document.getElementById('helpModal');
     const isVisible = modal.style.display === 'flex';
     modal.style.display = isVisible ? 'none' : 'flex';
 }
 
+/**
+ * Core UI rendering loop. Synchronizes health bars, text values, 
+ * and pet facial expressions with the underlying JavaScript petState object.
+ */
 function updateUI() {
     // Update text
     vals.happiness.innerText = `${Math.floor(petState.happiness)}/100`;
@@ -204,11 +218,35 @@ function appendMessage(senderType, message, senderName = '', shouldSave = true, 
     else prefix = `[${senderName}]: `;
 
     if (senderType === 'pet' && !skipTypewriter) {
-        msgDiv.innerHTML = `<span class="sender">${prefix}</span> <span class="typing-text"></span>`;
+        const senderSpan = document.createElement('span');
+        senderSpan.className = 'sender';
+        senderSpan.textContent = prefix;
+        
+        const typingSpan = document.createElement('span');
+        typingSpan.className = 'typing-text';
+        
+        msgDiv.appendChild(senderSpan);
+        msgDiv.appendChild(document.createTextNode(' '));
+        msgDiv.appendChild(typingSpan);
+        
         chatLog.appendChild(msgDiv);
-        typeText(msgDiv.querySelector('.typing-text'), message);
+        typeText(typingSpan, message);
+        
+        // Trigger Google Cloud TTS
+        playGoogleTTS(message);
     } else {
-        msgDiv.innerHTML = `<span class="sender">${prefix}</span> ${message}`;
+        const senderSpan = document.createElement('span');
+        senderSpan.className = 'sender';
+        senderSpan.textContent = prefix;
+        
+        const textSpan = document.createElement('span');
+        textSpan.className = 'message-content';
+        textSpan.textContent = message;
+
+        msgDiv.appendChild(senderSpan);
+        msgDiv.appendChild(document.createTextNode(' '));
+        msgDiv.appendChild(textSpan);
+        
         chatLog.appendChild(msgDiv);
     }
     
@@ -227,7 +265,7 @@ function typeText(element, text) {
     const speed = text.length > 100 ? 5 : 15;
     function type() {
         if (i < text.length) {
-            element.innerHTML += text.charAt(i);
+            element.textContent += text.charAt(i); // Fix XSS by using textContent instead of innerHTML
             i++;
             chatLog.scrollTop = chatLog.scrollHeight;
             setTimeout(type, speed);
@@ -236,6 +274,38 @@ function typeText(element, text) {
     type();
 }
 
+
+// --- Google Cloud TTS API Logic ---
+async function playGoogleTTS(text) {
+    if (!currentPetProfile || !currentPetProfile.voiceId) return;
+    
+    // Clean text of emojis and action asterisks (e.g. *jumps*) to prevent TTS from trying to read symbols
+    let cleanText = text.replace(/[\u{1F600}-\u{1F6FF}\u{1F300}-\u{1F5FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1FA70}-\u{1FAFF}\u{1F1E6}-\u{1F1FF}]/gu, '')
+                        .replace(/\*.*?\*/g, '')
+                        .trim();
+                        
+    if (!cleanText) return;
+
+    try {
+        const response = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: cleanText, voice: currentPetProfile.voiceId })
+        });
+        
+        if (!response.ok) return;
+        const data = await response.json();
+        
+        if (data.audioBase64) {
+            const audio = new Audio("data:audio/mp3;base64," + data.audioBase64);
+            audio.play();
+        } else if (data.warning) {
+            console.warn("Google TTS Mode:", data.warning);
+        }
+    } catch (err) {
+        console.error("TTS Fetch Error:", err);
+    }
+}
 
 // --- Gemini API Logic ---
 function getSystemPrompt() {
