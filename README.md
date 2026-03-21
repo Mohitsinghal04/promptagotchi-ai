@@ -22,7 +22,7 @@ The AI is instructed to reply completely in character, but critically, it must a
 1. **The Game Loop**: A frontend loop constantly decays the pet's stats over time in `app.js`.
 2. **Action Translation**: When a user inputs a command ("feed you an apple"), it's packaged with the pet's current state.
 3. **Secure Proxy**: The request hits our `server.py` Flask backend. The backend securely attaches the hidden `GEMINI_API_KEY` to prevent client-side leaks.
-4. **Resilient AI Calling**: The server attempts to call `gemini-2.0-flash`. If we hit rate limits, an automated cascade immediately falls back to `gemini-2.5-flash` or `gemma-3-4b-it`. If a Gemma model is used, the request payload is automatically restructured since Gemma doesn't natively support system instructions.
+4. **Direct Gemma Integration**: We actively utilize `gemma-3-4b-it` to drive our core engine. Because Gemma models handle system prompts differently, our backend automatically restructures the payload on the fly to inject character instructions directly into the user prompt.
 5. **State Persistence**: Once the frontend receives the AI's response and stat modifiers, it updates the visual bars, level, and saves everything to `localStorage` so the user can switch between different pets seamlessly without losing progress.
 
 ### 🤔 Assumptions Made
@@ -35,7 +35,7 @@ The AI is instructed to reply completely in character, but critically, it must a
 ## 🏆 Evaluation Focus Areas
 
 ### ✨ Code Quality
-The codebase is separated elegantly between a lightweight, stateless Python backend (`server.py`) and a modular Vanilla JS frontend (`app.js` and `style.css`). Logic is abstracted into clear routines (`updateUI`, `appendMessage`, `handleAction`, `saveGameData`), making it highly maintainable without relying on heavy frameworks like React or Node modules.
+The codebase is separated elegantly between a lightweight, stateless Python backend (`server.py`) and a modular Vanilla JS frontend. Utilizing modern **Vibe Coding** techniques fueled by **Google Antigravity**, logic is abstracted into clear routines (`updateUI`, `appendMessage`, `handleAction`, `saveGameData`), making it highly maintainable without relying on heavy frontend frameworks.
 
 ### 🔒 Security
 All API communications are routed through `server.py`. The `GEMINI_API_KEY` is loaded strictly via `.env` on the backend, ensuring it is never exposed in the browser network tab or bundled in frontend code. 
