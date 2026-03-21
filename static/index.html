@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Promptagotchi - A smart AI virtual pet powered by Google Gemini and Gemma models.">
+    <title>Promptagotchi - AI Virtual Pet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="hologram-grid"></div>
+    <div class="game-container">
+        <!-- PET SELECTION SCREEN -->
+        <div class="selection-screen" id="selectionScreen">
+            <h1 class="main-game-title">PROMPTAGOTCHI</h1>
+            <p class="game-intro">Welcome to your AI companion! Promptagotchi is a smart virtual pet powered by Google Gemini.</p>
+            <p class="selection-subtitle">Choose a digital pet below to link with your API key and start.</p>
+            
+            <div class="pet-grid">
+                <!-- Mascot 1 -->
+                <div class="pet-card" onclick="selectPet('byte')">
+                    <img src="byte.png" alt="Byte">
+                    <h3>Byte</h3>
+                    <p class="pet-desc">A hyper-energetic cyber-pup. Loves data bytes and running fast.</p>
+                </div>
+                <!-- Mascot 2 -->
+                <div class="pet-card" onclick="selectPet('luna')">
+                    <img src="luna.png" alt="Luna">
+                    <h3>Luna</h3>
+                    <p class="pet-desc">A mystical oracle cat. Slightly arrogant, loves reading the stars.</p>
+                </div>
+                <!-- Mascot 3 -->
+                <div class="pet-card" onclick="selectPet('blobby')">
+                    <img src="blobby.png" alt="Blobby">
+                    <h3>Blobby</h3>
+                    <p class="pet-desc">A goofy plasma slime. Always hungry, squishy, and deeply affectionate.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN GAME VIEW (HIDDEN BY DEFAULT) -->
+        <div id="gameView" style="display: none; width: 100%; height: 100%; flex-direction: column;">
+            <header class="game-header">
+                <div class="header-main">
+                    <h1>PROMPTAGOTCHI</h1>
+                    <button class="help-toggle" aria-label="Toggle Help Menu" onclick="toggleHelp()">?</button>
+                    <button class="quick-btn" aria-label="Switch your companion pet" style="margin-left: 10px; padding: 4px 10px; font-size: 0.8rem;" onclick="switchPet()">Switch Pet</button>
+                </div>
+            <p class="subtitle">v2026.1 // GEMINI POWERED</p>
+        </header>
+
+        <main class="game-layout">
+            <!-- Left Column: Pet & Stats -->
+            <aside class="sidebar-left">
+                <section class="pet-display-panel panel-glass">
+                    <div class="pet-avatar-container" id="petAvatar">
+                        <img src="spark_mascot.png" alt="Spark" class="pet-mascot" id="petMascot">
+                        <div class="pet-face-overlay">
+                            <span class="pet-face" id="petFace">( ^_^ )</span>
+                        </div>
+                    </div>
+                    <div class="pet-status-text" id="petStatusText">Idling...</div>
+                </section>
+
+                <section class="stats-panel panel-glass">
+                    <h2>SYSTEM VITALS</h2>
+                    <div class="stat-item">
+                        <div class="stat-header"><span>HAPPINESS</span><span id="val-happiness">80/100</span></div>
+                        <div class="stat-bar-container"><div class="stat-bar fill-green" id="bar-happiness" style="width: 80%"></div></div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-header"><span>HUNGER</span><span id="val-hunger">70/100</span></div>
+                        <div class="stat-bar-container"><div class="stat-bar fill-yellow" id="bar-hunger" style="width: 70%"></div></div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-header"><span>ENERGY</span><span id="val-energy">100/100</span></div>
+                        <div class="stat-bar-container"><div class="stat-bar fill-blue" id="bar-energy" style="width: 100%"></div></div>
+                    </div>
+                    <div class="level-indicator">
+                        <span id="val-level">LEVEL 1</span>
+                        <span>EXP <span id="val-exp">0</span></span>
+                    </div>
+                </section>
+            </aside>
+
+            <!-- Right Column: Chat Interaction -->
+            <section class="interaction-console panel-glass">
+                <div class="quick-actions">
+                    <button type="button" class="quick-btn" onclick="quickAction('Feed 🍎')">Feed 🍎</button>
+                    <button type="button" class="quick-btn" onclick="quickAction('Play 🎾')">Play 🎾</button>
+                    <button type="button" class="quick-btn" onclick="quickAction('Sleep 💤')">Sleep 💤</button>
+                    <button type="button" class="quick-btn" onclick="quickAction('Talk 💬')">Talk 💬</button>
+                </div>
+
+                <div class="chat-log" id="chatLog">
+                    <div class="chat-message system-msg">
+                        <span class="sender">[Spark✨]:</span> Hello! I'm Spark, your pet's guide. Say hello to your new companion!
+                    </div>
+                </div>
+
+                <form class="chat-input-area" id="actionForm">
+                    <span class="prompt-symbol">></span>
+                    <input type="text" id="actionInput" class="action-input-field" placeholder="Feed, play, or talk to your pet..." aria-label="Type your action here" autocomplete="off">
+                    <button type="submit" class="action-submit-btn" aria-label="Execute Action">EXECUTE</button>
+                </form>
+            </section>
+        </main>
+        </div> <!-- End of gameView -->
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal-overlay" onclick="toggleHelp()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="toggleHelp()">&times;</button>
+            <h2>How to Play 🦁🛡️</h2>
+            <div class="help-scroll">
+                <h3>Welcome to Promptagotchi!</h3>
+                <p>Spark is your magical AI companion powered by Google Gemini. Unlike traditional pets, Spark understands everything you say!</p>
+                
+                <div class="help-section">
+                    <h4>📊 System Vitals</h4>
+                    <ul>
+                        <li><strong>Happiness:</strong> Keeps Spark's mood positive. Interacting and playing helps!</li>
+                        <li><strong>Hunger:</strong> Don't let this hit zero! Spark gets grumpy and sick when hungry.</li>
+                        <li><strong>Energy:</strong> Everything takes energy. If it's too low, let Spark sleep.</li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h4>💬 Interaction</h4>
+                    <p>You can use the <strong>Quick Buttons</strong> for common tasks, or <strong>Type Anything</strong> in the console. Try "Tell me a story" or "Let's go to the moon!"</p>
+                </div>
+
+                <div class="help-section">
+                    <h4>✨ Level Up</h4>
+                    <p>Interacting with Spark earns you EXP. Watch the level bar on the left to see your progress!</p>
+                </div>
+            </div>
+            <button class="modal-btn" onclick="toggleHelp()">GOT IT!</button>
+        </div>
+    </div>
+
+    <script src="app.js" defer></script>
+</body>
+</html>
