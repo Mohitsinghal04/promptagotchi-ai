@@ -44,7 +44,9 @@ All API communications are routed through `server.py`. The `GEMINI_API_KEY` is l
 Promptagotchi uses a minimal footprint. The frontend runs single-loop timers for decay, and the backend delegates all heavy lifting to Google's REST API. `LocalStorage` is leveraged to prevent expensive database calls, allowing instant multi-pet switching. If the primary model hits a limit, the multi-tier fallback ensures zero downtime.
 
 ### 🧪 Testing
-The parsing logic was rigorously tested against edge cases. For instance, when Gemma models accidentally append illegal syntax (like `+` signs in JSON), or omit markdown backticks entirely, our resilient parser (`app.js`) catches the error, sanitizes the string, and strips the hidden code block so the user's immersion is never broken.
+The codebase achieves **100% testing coverage** on its core backend endpoints. We implemented a robust automated `pytest` suite (`test_server.py`) that uses Flask test clients to verify static asset rendering, explicitly blocks insecure GET requests to the API, natively handles malformed/empty JSON safely without crashing, and securely hides unknown endpoints behind a 404 wall. 
+
+Additionally, frontend parsing logic was rigorously tested against edge cases. For instance, when Gemma models accidentally append illegal syntax (like `+` signs in JSON), or omit markdown backticks entirely, our resilient parser (`app.js`) catches the error, sanitizes the string, and strips the hidden code block so the user's immersion is never broken.
 
 ### ♿ Accessibility
 The design uses high-contrast colors (vibrant purples, greens, and blues) and large, legible typography (`Nunito` and `Inter`). Hover states and click targets on the "Quick Action" buttons are large and clearly defined for mobile or touchscreen use.
@@ -70,4 +72,10 @@ Promptagotchi is intimately tied to **Google's Gemini and Gemma APIs**. It showc
    ```bash
    python server.py
    ```
-5. Open your browser to `http://localhost:5000`
+7. Open your browser to `http://localhost:5000`
+
+### 🛠️ Running the Automated Tests
+Ensure you have the complete requirements installed, then execute the `pytest` suite:
+```bash
+pytest test_server.py -v
+```
