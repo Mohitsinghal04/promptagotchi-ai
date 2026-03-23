@@ -7,20 +7,19 @@ Handles API routing, secure API key injection, and automated model fallbacks.
 
 import io
 import os
-import copy
 import base64
 import json
 import logging
-from typing import Tuple, Any
+from typing import Tuple, Any, Dict, List, cast
 
 from flask import Flask, request, jsonify, send_from_directory
-import requests
 from dotenv import load_dotenv
 from gtts import gTTS
 import google.cloud.logging
 from google.cloud import storage
 from google.cloud import secretmanager
 from google.cloud import error_reporting
+import google.generativeai as genai
 
 app = Flask(__name__, static_folder="static")
 
@@ -52,7 +51,80 @@ try:
         )
 except Exception as sm_err:  # pylint: disable=broad-exception-caught
     logging.info(f"[SYSTEM] Secret Manager bypassed (using .env fallback): {sm_err}")
+
+if API_KEY:
+    genai.configure(api_key=API_KEY)
+
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
+
+
+def call_gemini_sdk(model_name_to_call: str) -> Tuple[Any, int]:
+    """Invoke the Google Generative AI SDK with the specified model."""
+    try:
+        payload = cast(Dict[str, Any], request.json or {})
+        raw_gen_config = payload.get(
+            "generationConfig",
+            {
+                "temperature": 1.0,
+                "max_output_tokens": 400,
+                "top_p": 0.95,
+            },
+        )
+
+        # Ensure gen_config is a mutable dict for replacement
+        gen_config = dict(raw_gen_config)
+
+        # Map JS naming to SDK naming if necessary
+        if "maxOutputTokens" in gen_config:
+            gen_config["max_output_tokens"] = gen_config.pop("maxOutputTokens")
+        if "topP" in gen_config:
+            gen_config["top_p"] = gen_config.pop("topP")
+
+        model_obj = genai.GenerativeModel(
+            model_name=model_name_to_call, generation_config=gen_config
+        )
+
+        sys_inst = payload.get("system_instruction", "")
+
+        # Handle standard conversation history
+        contents = cast(List[Dict[str, Any]], payload.get("contents", []))
+
+        if "gemma" in model_name_to_call.lower():
+            # Gemma doesn't support system_instruction; inline it
+            sys_text = ""
+            if isinstance(sys_inst, dict) and "parts" in sys_inst:
+                sys_text = "\n".join([p.get("text", "") for p in sys_inst["parts"]])
+            elif isinstance(sys_inst, str):
+                sys_text = sys_inst
+
+            if contents and len(contents) > 0:
+                first_msg = contents[0]
+                if "parts" in first_msg and len(first_msg["parts"]) > 0:
+                    orig_text = first_msg["parts"][0].get("text", "")
+                    first_msg["parts"][0]["text"] = (
+                        f"SYSTEM INSTRUCTIONS:\n{sys_text}\n\n"
+                        f"USER PROMPT:\n{orig_text}"
+                    )
+            response = model_obj.generate_content(contents)
+        else:
+            # Gemini models support system instruction natively
+            if sys_inst:
+                model_obj = genai.GenerativeModel(
+                    model_name=model_name_to_call,
+                    generation_config=gen_config,
+                    system_instruction=sys_inst,
+                )
+            response = model_obj.generate_content(contents)
+
+        # Manually construct response to match existing frontend expectations
+        return {
+            "candidates": [{"content": {"parts": [{"text": response.text}]}}]
+        }, 200
+    except Exception as sdk_e:
+        err_str = str(sdk_e)
+        if "429" in err_str:
+            return {"error": "quota_exceeded"}, 429
+        raise sdk_e
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -69,77 +141,28 @@ def proxy_gemini() -> Tuple[Any, int]:
     if not api_key:
         return jsonify({"error": "Missing GEMINI_API_KEY"}), 500
 
-    def call_gemini(model: str) -> requests.Response:
-        """Invoke the Google Generative Language API with the specified model."""
-        endpoint = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{model}:generateContent?key={api_key}"
-        )
-        payload = {}
-        if request.json and isinstance(request.json, dict):
-            payload = copy.deepcopy(request.json)
-
-        if "generationConfig" not in payload:
-            payload["generationConfig"] = {
-                "temperature": 1.0,
-                "maxOutputTokens": 400,
-                "topP": 0.95,
-            }
-
-        # Gemma models don't support system_instruction; inline it into the first user message
-        if "gemma" in model and "system_instruction" in payload:
-            sys_inst = payload.pop("system_instruction")
-            sys_text = ""
-            if "parts" in sys_inst:
-                sys_text = "\n".join([p.get("text", "") for p in sys_inst["parts"]])
-
-            if "contents" in payload and len(payload["contents"]) > 0:
-                user_msg = payload["contents"][0]
-                if "parts" in user_msg and len(user_msg["parts"]) > 0:
-                    orig_text = user_msg["parts"][0].get("text", "")
-                    user_msg["parts"][0]["text"] = (
-                        f"SYSTEM INSTRUCTIONS:\n{sys_text}\n\n"
-                        f"USER PROMPT:\n{orig_text}"
-                    )
-
-        logging.info(f"[DEBUG] Proxying to {model}...")
-        return requests.post(
-            endpoint,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=15,
-        )
-
     try:
-        response = call_gemini(model_name)
-        # Automatic Fallback chain if quota (429) hits
-        if response.status_code == 429:
-            logging.warning("quota exceeded. Falling back to gemini-2.5-flash...")
-            response = call_gemini("gemini-2.5-flash")
+        # Fallback chain using SDK
+        res_data, status = call_gemini_sdk(model_name)
 
-            # If 2.5-flash is also rate-limited, try the lite model
-            if response.status_code == 429:
+        if status == 429:
+            logging.warning("quota exceeded. Falling back to gemini-1.5-flash...")
+            res_data, status = call_gemini_sdk("gemini-1.5-flash")
+
+            if status == 429:
                 logging.warning(
-                    "gemini-2.5-flash quota exceeded. Falling back to gemini-2.0-flash-lite..."
+                    "1.5-flash quota exceeded. Falling back to gemini-2.0-flash-lite..."
                 )
-                response = call_gemini("gemini-2.0-flash-lite")
+                res_data, status = call_gemini_sdk("gemini-2.0-flash-lite")
 
-                # If all Gemini models are exhausted or locked, fallback to Gemma-3
-                if response.status_code == 429:
+                if status == 429:
                     logging.warning(
-                        "All Gemini quotas exhausted. Falling back to gemma-3-4b-it..."
+                        "All Gemini quotas exhausted or locked. Falling back to gemma-3-4b-it..."
                     )
-                    response = call_gemini("gemma-3-4b-it")
-        # Safe JSON parsing
-        try:
-            res_json = response.json()
-        except ValueError:
-            res_json = {"error": "Invalid JSON from Gemini", "raw": response.text}
+                    res_data, status = call_gemini_sdk("gemma-3-4b-it")
 
-        if response.status_code != 200:
-            logging.error(f"Gemini HTTP {response.status_code}: {response.text}")
+        return jsonify(res_data), status
 
-        return jsonify(res_json), response.status_code
     except Exception as e:  # pylint: disable=broad-exception-caught
         if error_client:
             error_client.report_exception()

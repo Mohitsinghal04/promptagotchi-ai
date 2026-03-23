@@ -1,3 +1,6 @@
+"use strict";
+(function() {
+
 // --- DOM Elements ---
 const chatLog = document.getElementById('chatLog');
 const actionForm = document.getElementById('actionForm');
@@ -611,5 +614,13 @@ setInterval(() => {
     saveGameData(); // Persist stat changes over time
 }, 2000);
 
-// Initialize UI
-updateUI();
+    // Initialize UI
+    updateUI();
+
+    // --- Explicit Window Exports for DOM Triggers ---
+    window.selectPet = selectPet;
+    window.switchPet = switchPet;
+    window.toggleHelp = toggleHelp;
+    window.quickAction = quickAction;
+
+})();
