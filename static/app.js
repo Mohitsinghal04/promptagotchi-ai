@@ -38,6 +38,29 @@ function saveGameData() {
         }
         gameData[currentPetProfile.id].state = { ...petState };
         localStorage.setItem('promptagotchiData', JSON.stringify(gameData));
+        
+        // Push state safely to official Google Cloud Storage backend
+        backupToCloudStorage();
+    }
+}
+
+/**
+ * Pushes exactly the active game state to Google Cloud Storage via the secure Flask proxy.
+ * Ignored gracefully if bucket credentials are not provided in environment vars.
+ */
+async function backupToCloudStorage() {
+    if (!currentPetProfile) return;
+    try {
+        await fetch('/api/backup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pet_id: currentPetProfile.id,
+                state: petState
+            })
+        });
+    } catch (err) {
+        // Silently swallow fetch errors so gameplay isn't interrupted by backup failures
     }
 }
 
@@ -176,6 +199,11 @@ function updateUI() {
     }
 }
 
+/**
+ * Updates the visual width and color threshold of a stat bar.
+ * @param {HTMLElement} element - The DOM element of the bar.
+ * @param {number} value - The current stat value (0-100).
+ */
 function updateBar(element, value) {
     element.style.width = `${Math.max(0, Math.min(100, value))}%`;
     
@@ -186,6 +214,12 @@ function updateBar(element, value) {
     else element.classList.add('fill-red');
 }
 
+/**
+ * Spawns a temporary floating text animation (-5, +10) over a stat bar.
+ * @param {string} text - The text to display.
+ * @param {string} colorClass - CSS class determining the text color.
+ * @param {string} targetId - The ID of the stat UI element to spawn near.
+ */
 function showFloatingText(text, colorClass, targetId) {
     const container = document.getElementById(targetId).parentElement;
     const floating = document.createElement('div');
@@ -202,11 +236,16 @@ function showFloatingText(text, colorClass, targetId) {
     setTimeout(() => floating.remove(), 1000);
 }
 
-function quickAction(action) {
-    actionInput.value = action;
-    actionForm.dispatchEvent(new Event('submit'));
-}
+// Duplicate function quickAction removed to prevent override
 
+/**
+ * Appends a new message to the chat log and optionally saves it to history.
+ * @param {string} senderType - 'user', 'pet', or 'system'.
+ * @param {string} message - The content of the message.
+ * @param {string} [senderName=''] - Override name for the sender.
+ * @param {boolean} [shouldSave=true] - Whether to persist the message.
+ * @param {boolean} [skipTypewriter=false] - Whether to instantly render the pet text.
+ */
 function appendMessage(senderType, message, senderName = '', shouldSave = true, skipTypewriter = false) {
     const msgDiv = document.createElement('div');
     msgDiv.className = `chat-message ${senderType}-msg animate-fade-in`;
@@ -260,6 +299,11 @@ function appendMessage(senderType, message, senderName = '', shouldSave = true, 
     }
 }
 
+/**
+ * Creates a typewriter animation effect for elements.
+ * @param {HTMLElement} element - The target DOM element.
+ * @param {string} text - The text to animate.
+ */
 function typeText(element, text) {
     let i = 0;
     const speed = text.length > 100 ? 5 : 15;
@@ -275,7 +319,10 @@ function typeText(element, text) {
 }
 
 
-// --- Google Cloud TTS API Logic ---
+/**
+ * Fetches and plays a synthesized Google Cloud TTS audio buffer for the pet's dialogue.
+ * @param {string} text - The dialogue to vocalize.
+ */
 async function playGoogleTTS(text) {
     if (!currentPetProfile || !currentPetProfile.tld) return;
     
@@ -299,15 +346,17 @@ async function playGoogleTTS(text) {
         if (data.audioBase64) {
             const audio = new Audio("data:audio/mp3;base64," + data.audioBase64);
             audio.play();
-        } else if (data.warning) {
-            console.warn("Google TTS Mode:", data.warning);
         }
     } catch (err) {
-        console.error("TTS Fetch Error:", err);
+        // Silently swallow fetch errors to prevent console leakage in production
     }
 }
 
 // --- Gemini API Logic ---
+/**
+ * Constructs the hidden system instruction for the AI, bridging static traits with volatile stats.
+ * @returns {string} The fully compiled system prompt constraint.
+ */
 function getSystemPrompt() {
     const petName = currentPetProfile ? currentPetProfile.name : 'Spark';
     const petPersona = currentPetProfile ? currentPetProfile.personality : `You are Spark, a magical, high-energy virtual pet.`;
@@ -344,6 +393,12 @@ Never fail to include the JSON block.`;
 
 // --- Feedback & Juice ---
 
+/**
+ * Renders a CSS animation of rising text at the specified coordinates.
+ * @param {string} text - The text to float.
+ * @param {number} x - The X client coordinate.
+ * @param {number} y - The Y client coordinate.
+ */
 function showFeedback(text, x, y) {
     const bubble = document.createElement('div');
     bubble.className = 'feedback-bubble';
@@ -354,6 +409,10 @@ function showFeedback(text, x, y) {
     setTimeout(() => bubble.remove(), 1500);
 }
 
+/**
+ * Render an aggressive, satisfying screen overlay when a level up occurs.
+ * @param {number} lvl - The newly achieved level.
+ */
 function showLevelToast(lvl) {
     const toast = document.createElement('div');
     toast.className = 'level-toast';
@@ -362,6 +421,10 @@ function showLevelToast(lvl) {
     setTimeout(() => toast.remove(), 2000);
 }
 
+/**
+ * Injects predefined physical actions into the chat flow and creates visual mouse feedback.
+ * @param {string} type - The string action to submit.
+ */
 function quickAction(type) {
     // Show visual feedback on the button itself
     if (window.event) {
@@ -374,6 +437,10 @@ function quickAction(type) {
     handleAction(new Event('submit'));
 }
 
+/**
+ * The master game loop. Handles UX state, API bridging, UI updates, and intelligent fallback networking.
+ * @param {Event} e - The HTML form submission event to intercept.
+ */
 async function handleAction(e) {
     if (e && e.preventDefault) e.preventDefault();
     const input = actionInput.value.trim();
@@ -501,7 +568,7 @@ async function handleAction(e) {
                     showLevelToast(petState.level);
                 }
             } catch(e) { 
-                console.error("Failed to parse AI stats", e, "Raw string:", jsonString); 
+                // Parsing failed, silently fallback to user 
                 appendMessage('system', "Spark's brain glitched trying to understand that stats format.");
             }
         }
@@ -509,7 +576,6 @@ async function handleAction(e) {
         appendMessage('pet', petMessage);
 
     } catch (err) {
-        console.error("Action error:", err);
         // Only show generic error if it was a network failure (no response from server)
         appendMessage('system', `Oops, Spark's signal is weak. (${err.message})`);
     } finally {

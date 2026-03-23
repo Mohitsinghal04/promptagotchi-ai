@@ -280,25 +280,7 @@ body::before {
 .mood-sad .pet-mascot { filter: grayscale(0.8) brightness(0.9); }
 .mood-angry .pet-mascot { filter: sepia(0.5) saturate(3) hue-rotate(-60deg); }
 .mood-happy .pet-mascot { filter: saturate(1.4) contrast(1.1); }
-
-.animate-happy { animation: bounce 2s ease-in-out infinite; }
-.animate-neutral { animation: float 4s ease-in-out infinite; }
-.animate-sad { animation: float 6s ease-in-out infinite; filter: grayscale(50%); opacity: 0.8; }
-.animate-angry { animation: shake 0.5s ease-in-out infinite; }
-
-@keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-}
-@keyframes bounce {
-    0%, 100% { transform: translateY(0px) scale(1); }
-    50% { transform: translateY(-15px) scale(1.05); }
-}
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-5px); }
-    75% { transform: translateX(5px); }
-}
+.mood-neutral .pet-mascot { filter: none; }
 
 
 .pet-avatar-container:hover .pet-mascot {
